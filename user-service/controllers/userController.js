@@ -110,7 +110,6 @@ exports.updateUserProfile = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({  message: "Server error" , error: error.message, });
-<<<<<<< HEAD
   }
 };
 
@@ -141,8 +140,6 @@ exports.forgotPassword = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
-=======
->>>>>>> 155f177 (user service completed)
   }
 };
 
