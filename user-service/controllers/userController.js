@@ -1,0 +1,174 @@
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+// Generate Token
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+};
+
+// REGISTER
+exports.registerUser = async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      token: generateToken(user._id),
+      message: "User registered successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({  message: "Server error" , error: error.message, });
+  }
+};
+
+// LOGIN
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        token: generateToken(user._id),
+        message: "Login successful",
+      });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
+    }
+
+  } catch (error) {
+    res.status(500).json({ message: "Server error" , error: error.message,  });
+  }
+};
+
+// GET USER PROFILE (Protected)
+exports.getUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const user = await User.findById(userId).select("-password"); 
+
+    if (user) {
+      res.status(200).json(user);
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" , error: error.message, });
+  }
+};
+
+// UPDATE USER PROFILE BY ID (Protected)
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { name, email, password } = req.body;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      message: "User profile updated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({  message: "Server error" , error: error.message, });
+  }
+};
+
+
+
+// for forgot password currently not implemented in frontend but implemented in backend and need to communicate with notification service to send email to user for reset password link
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = Date.now() + 3600000; 
+    await user.save();
+
+    // Call Notification Service to send email
+    await axios.post("http://localhost:6000/api/notifications/send", {
+      to: user.email,
+      subject: "Password Reset",
+      message: `Reset your password: http://yourfrontend.com/reset-password/${resetToken}`,
+    });
+
+    res.status(200).json({ message: "Email sent" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+// for forgot password currently not implemented in frontend but implemented in backend and need to communicate with notification service to send email to user for reset password link
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = Date.now() + 3600000; 
+    await user.save();
+
+    // Call Notification Service to send email
+    await axios.post("http://localhost:6000/api/notifications/send", {
+      to: user.email,
+      subject: "Password Reset",
+      message: `Reset your password: http://yourfrontend.com/reset-password/${resetToken}`,
+    });
+
+    res.status(200).json({ message: "Email sent" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
