@@ -135,27 +135,24 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-    // ✅ Send message to RabbitMQ
+    // Send message to RabbitMQ
     const channel = getChannel();
     const queue = "forgot_passwordemail_queue";
 
     await channel.assertQueue(queue);
 
-    channel.sendToQueue(
+      channel.sendToQueue(
       queue,
       Buffer.from(
         JSON.stringify({
+          type: "FORGOT_PASSWORD",
           email: user.email,
-          subject: "Password Reset",
-          html: `
-            <h3>Password Reset</h3>
-            <p>Click below link:</p>
-            <a href="${resetURL}">${resetURL}</a>
-          `,
+          subject: "Password Reset Request",
+          resetToken,
+          frontendUrl: process.env.FRONTEND_URL,
         })
-      )
+      ),
+      { persistent: true }
     );
 
     res.status(200).json({ message: "Reset email queued" });
