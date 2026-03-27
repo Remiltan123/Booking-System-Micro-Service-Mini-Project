@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { getChannel } = require("../config/rabbitmq");
 
 // Generate Token
 const generateToken = (id) => {
@@ -167,6 +168,57 @@ exports.forgotPassword = async (req, res) => {
     });
 
     res.status(200).json({ message: "Email sent" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // ✅ Generate token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    // ✅ Send message to RabbitMQ
+    const channel = getChannel();
+    const queue = "email_queue";
+
+    await channel.assertQueue(queue);
+
+    channel.sendToQueue(
+      queue,
+      Buffer.from(
+        JSON.stringify({
+          email: user.email,
+          subject: "Password Reset",
+          html: `
+            <h3>Password Reset</h3>
+            <p>Click below link:</p>
+            <a href="${resetURL}">${resetURL}</a>
+          `,
+        })
+      )
+    );
+
+    res.status(200).json({ message: "Reset email queued" });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
