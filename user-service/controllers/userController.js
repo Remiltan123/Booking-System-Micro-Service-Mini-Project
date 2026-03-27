@@ -1,6 +1,8 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { getChannel } = require("../config/rabbitmq");
+const crypto = require("crypto");
 
 // Generate Token
 const generateToken = (id) => {
@@ -115,7 +117,6 @@ exports.updateUserProfile = async (req, res) => {
 
 
 
-// for forgot password currently not implemented in frontend but implemented in backend and need to communicate with notification service to send email to user for reset password link
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -123,50 +124,39 @@ exports.forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString("hex");
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 3600000; 
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    // Call Notification Service to send email
-    await axios.post("http://localhost:6000/api/notifications/send", {
-      to: user.email,
-      subject: "Password Reset",
-      message: `Reset your password: http://yourfrontend.com/reset-password/${resetToken}`,
-    });
+    // Send message to RabbitMQ
+    const channel = getChannel();
+    const queue = "forgot_passwordemail_queue";
 
-    res.status(200).json({ message: "Email sent" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+    await channel.assertQueue(queue);
 
+      channel.sendToQueue(
+      queue,
+      Buffer.from(
+        JSON.stringify({
+          type: "FORGOT_PASSWORD",
+          email: user.email,
+          subject: "Password Reset Request",
+          resetToken,
+          frontendUrl: process.env.FRONTEND_URL,
+        })
+      ),
+      { persistent: true }
+    );
 
+    res.status(200).json({ message: "Reset email queued" });
 
-// for forgot password currently not implemented in frontend but implemented in backend and need to communicate with notification service to send email to user for reset password link
-exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString("hex");
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 3600000; 
-    await user.save();
-
-    // Call Notification Service to send email
-    await axios.post("http://localhost:6000/api/notifications/send", {
-      to: user.email,
-      subject: "Password Reset",
-      message: `Reset your password: http://yourfrontend.com/reset-password/${resetToken}`,
-    });
-
-    res.status(200).json({ message: "Email sent" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

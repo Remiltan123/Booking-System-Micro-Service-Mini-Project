@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const userRoutes = require("./routes/userRoutes")
+const { connectRabbitMQ } = require("./config/rabbitmq");
 
 
 dotenv.config();
@@ -25,7 +26,19 @@ const connectDB = async () => {
     }
 };
 
+const connectRabbitMQAndStartServer = async () => {
+    try {
+        await connectRabbitMQ();
+        console.log('Connected to RabbitMQ successfully');
+    } catch (error) {
+        console.error('Failed to connect to RabbitMQ', error);
+    }
+}
+
 connectDB();
+connectRabbitMQAndStartServer();
+
 app.listen(PORT, () => {
     console.log(`user service running on port ${PORT}`);
 });
+
