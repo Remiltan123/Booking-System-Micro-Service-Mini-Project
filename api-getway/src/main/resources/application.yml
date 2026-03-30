@@ -1,0 +1,21 @@
+
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: http://localhost:5000
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - JwtAuthenticationFilter
+
+        - id: notification-service
+          uri: http://localhost:5001
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - JwtAuthenticationFilter
