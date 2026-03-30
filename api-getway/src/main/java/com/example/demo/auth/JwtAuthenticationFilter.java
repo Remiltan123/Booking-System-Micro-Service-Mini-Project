@@ -17,14 +17,15 @@ import javax.crypto.SecretKey;
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
-    private final String SECRET = "etwddsabdtw122442@jhjsagdyqudwjdgdw123456"; 
+    private final String SECRET = "etwddsabdtw122442@jhjsagdyqudwjdgdw123456";
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
 
     public JwtAuthenticationFilter() {
         super(Config.class);
     }
 
-    public static class Config {}
+    public static class Config {
+    }
 
     @Override
     public GatewayFilter apply(Config config) {
@@ -35,14 +36,14 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
             System.out.println("Path hit: " + path);
 
-            //Allow public endpoints
+            // Allow public endpoints
             if (path.contains("/api/users/login") ||
-                path.contains("/api/users/register") ||
-                path.contains("/api/users/forgot-password")) {
+                    path.contains("/api/users/register") ||
+                    path.contains("/api/users/forgot-password")) {
                 return chain.filter(exchange);
             }
 
-            //Missing Authorization Header
+            // Missing Authorization Header
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
@@ -74,7 +75,13 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus status) {
-        exchange.getResponse().setStatusCode(status);
-        return exchange.getResponse().setComplete();
+        var response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().add("Content-Type", "application/json");
+
+        String body = "{\"error\": \"" + err + "\"}";
+
+        var buffer = response.bufferFactory().wrap(body.getBytes());
+        return response.writeWith(Mono.just(buffer));
     }
 }
