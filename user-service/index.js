@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const userRoutes = require("./routes/userRoutes")
 const { connectRabbitMQ } = require("./config/rabbitmq");
+const eurekaClient = require("./config/eureka-client");
 
 
 dotenv.config();
@@ -15,6 +16,15 @@ app.use(express.json());
 
 
 app.use("/api/users", userRoutes);
+
+app.get("/api/users/test", (req, res) => {
+    console.log(" REQUEST HANDLED BY PORT:", process.env.PORT);
+
+    res.json({
+        message: "Response from user-service",
+        port: process.env.PORT
+    });
+});
 
 
 const connectDB = async () => {
@@ -40,5 +50,15 @@ connectRabbitMQAndStartServer();
 
 app.listen(PORT, () => {
     console.log(`user service running on port ${PORT}`);
+
+    eurekaClient.start((error) => {
+        if (error) {
+            console.log("Eureka registration failed ", error);
+        } else {
+            console.log("User Service registered in Eureka");
+        }
+    });
 });
+
+
 

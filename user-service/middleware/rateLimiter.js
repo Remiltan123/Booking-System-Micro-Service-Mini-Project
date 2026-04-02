@@ -20,7 +20,7 @@ const authLimiter = rateLimit({
     // Use call for ioredis compatibility
     sendCommand: (...args) => redisClient.call(...args),
   }),
-  windowMs: 5 * 60 * 1000, 
+  windowMs: 1 * 60 * 1000, 
   max: 3,
   standardHeaders: true, // Recommended: sends RateLimit-* headers
   legacyHeaders: false,   // Recommended: disables X-RateLimit-* headers

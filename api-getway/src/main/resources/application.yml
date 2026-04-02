@@ -3,19 +3,21 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: api-gateway
+
   cloud:
     gateway:
-      routes:
-        - id: user-service
-          uri: http://localhost:5000
-          predicates:
-            - Path=/api/users/**
-          filters:
-            - JwtAuthenticationFilter
+      default-filters:
+        - JwtAuthenticationFilter
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
 
-        - id: notification-service
-          uri: http://localhost:5001
-          predicates:
-            - Path=/api/notifications/**
-          filters:
-            - JwtAuthenticationFilter
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true

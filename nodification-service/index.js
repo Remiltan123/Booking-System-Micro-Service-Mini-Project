@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const { connectRabbitMQ } = require("./config/rabbitmq");
 const startEmailConsumer = require("./consumer/emailComsumer");
-
+const eurekaClient = require("./config/eureka-client");
 
 
 dotenv.config();
@@ -37,4 +37,12 @@ connectDB();
 connectRabbitMQAndStartServer();
 app.listen(PORT, () => {
     console.log(`user service running on port ${PORT}`);
+
+    eurekaClient.start((error) => {
+        if (error) {
+            console.log("Eureka registration failed ", error);
+        } else {
+            console.log("User Service registered in Eureka");
+        }
+    });
 });
