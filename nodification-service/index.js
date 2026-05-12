@@ -2,7 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const { connectRabbitMQ } = require("./config/rabbitmq");
+const { connectRabbitMQ } = require("../movies-service/rabbitmq");
 const startEmailConsumer = require("./consumer/emailComsumer");
 const eurekaClient = require("./config/eureka-client");
 

@@ -1,5 +1,20 @@
 const mongoose = require("mongoose");
 
+// Helper to generate a default seat map (e.g., 50 seats)
+const generateSeats = () => {
+  const seats = [];
+  const rows = "ABCDEFGHIJ"; // 10 rows
+  for (let row of rows) {
+    for (let i = 1; i <= 5; i++) {
+      seats.push({
+        seatNumber: `${row}${i}`,
+        isBooked: false,
+      });
+    }
+  }
+  return seats;
+};
+
 const movieSchema = new mongoose.Schema(
   {
     title: {
@@ -31,6 +46,19 @@ const movieSchema = new mongoose.Schema(
       type: Number,
       min: [1, "Rating must be at least 1"],
       max: [10, "Rating cannot be more than 10"],
+    },
+    showTime: {
+      type: Date,
+      required: [true, "Please add a show time"],
+    },
+    seats: {
+      type: [
+        {
+          seatNumber: String,
+          isBooked: { type: Boolean, default: false },
+        },
+      ],
+      default: generateSeats,
     },
   },
   {

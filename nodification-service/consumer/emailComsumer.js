@@ -1,6 +1,6 @@
 const sendEmail = require("../service/emailService");
 const {forgotPasswordTemplate } = require("../emailTemplate/forgotPassword");
-const { getChannel } = require("../config/rabbitmq");
+const { getChannel } = require("../../movies-service/rabbitmq");
 
 const queue = "forgot_passwordemail_queue";
 
