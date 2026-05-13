@@ -1,206 +1,208 @@
 const Movie = require("../models/Movie");
+const { getChannel } = require("../config/rabbitmq");
 
-// ─────────────────────────────────────────────
-// GET /api/movies  — list all movies
-// ─────────────────────────────────────────────
-exports.getAllMovies = async (req, res) => {
+// @desc    Get all movies
+// @route   GET /api/movies
+// @access  Public
+exports.getMovies = async (req, res) => {
   try {
-    // Exclude the heavy seats array from the list view
-    const movies = await Movie.find().select("-seats");
-    res.status(200).json(movies);
+    const { page = 1, limit = 10 } = req.query;
+
+    const movies = await Movie.find()
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await Movie.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      totalMovies: total,
+      currentPage: Number(page),
+      totalPages: Math.ceil(total / limit),
+      data: movies,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
-// ─────────────────────────────────────────────
-// POST /api/movies  — add a new movie (admin)
-// ─────────────────────────────────────────────
+// @desc    Get single movie
+// @route   GET /api/movies/:id
+// @access  Public
+exports.getMovie = async (req, res) => {
+  try {
+    const movie = await Movie.findById(req.params.id);
+
+    if (!movie) {
+      return res.status(404).json({ success: false, message: "Movie not found" });
+    }
+
+    res.status(200).json({ success: true, data: movie });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// @desc    Create new movie
+// @route   POST /api/movies
+// @access  Private (Admin role assumed)
 exports.createMovie = async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      genre,
-      language,
-      duration,
-      releaseDate,
-      posterUrl,
-    } = req.body;
+    const movie = await Movie.create(req.body);
 
-    if (!title || !genre || !duration || !releaseDate) {
-      return res.status(400).json({
-        message: "title, genre, duration and releaseDate are required",
-      });
+    // Optional: Send event to RabbitMQ
+    const channel = getChannel();
+    if (channel) {
+        const queue = "movie_events_queue";
+        await channel.assertQueue(queue);
+        channel.sendToQueue(queue, Buffer.from(JSON.stringify({ type: "MOVIE_CREATED", data: movie })));
     }
 
-    const movie = await Movie.create({
-      title,
-      description,
-      genre,
-      language,
-      duration,
-      releaseDate,
-      posterUrl,
-    });
-
-    res.status(201).json({
-      message: "Movie created successfully",
-      movie,
-    });
+    res.status(201).json({ success: true, data: movie });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(400).json({ success: false, message: "Invalid data", error: error.message });
   }
 };
 
-// ─────────────────────────────────────────────
-// GET /api/movies/:id  — get single movie detail
-// ─────────────────────────────────────────────
-exports.getMovieById = async (req, res) => {
-  try {
-    const movie = await Movie.findById(req.params.id).select("-seats");
-    if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
-    }
-    res.status(200).json(movie);
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-// ─────────────────────────────────────────────
-// GET /api/movies/:id/seats  — get seat availability
-// Called by Booking Service (inter-service communication)
-// ─────────────────────────────────────────────
-exports.getMovieSeats = async (req, res) => {
-  try {
-    const movie = await Movie.findById(req.params.id).select(
-      "title seats totalSeats"
-    );
-    if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
-    }
-
-    const availableSeats = movie.seats.filter((s) => !s.isBooked);
-    const bookedSeats    = movie.seats.filter((s) => s.isBooked);
-
-    res.status(200).json({
-      movieId:        movie._id,
-      title:          movie.title,
-      totalSeats:     movie.totalSeats,
-      availableCount: availableSeats.length,
-      bookedCount:    bookedSeats.length,
-      seats:          movie.seats,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-// ─────────────────────────────────────────────
-// PATCH /api/movies/:id/seats/book
-// Body: { seatNumber: "A1" }
-// Called internally by Booking Service to mark a seat as booked
-// ─────────────────────────────────────────────
-exports.bookSeat = async (req, res) => {
-  try {
-    const { seatNumber } = req.body;
-    if (!seatNumber) {
-      return res.status(400).json({ message: "seatNumber is required" });
-    }
-
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
-    }
-
-    const seat = movie.seats.find((s) => s.seatNumber === seatNumber);
-    if (!seat) {
-      return res.status(404).json({ message: `Seat ${seatNumber} not found` });
-    }
-    if (seat.isBooked) {
-      return res
-        .status(409)
-        .json({ message: `Seat ${seatNumber} is already booked` });
-    }
-
-    seat.isBooked = true;
-    await movie.save();
-
-    res.status(200).json({
-      message: `Seat ${seatNumber} booked successfully`,
-      seat,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-// ─────────────────────────────────────────────
-// PATCH /api/movies/:id/seats/release
-// Body: { seatNumber: "A1" }
-// Called by Booking Service when a booking is cancelled
-// ─────────────────────────────────────────────
-exports.releaseSeat = async (req, res) => {
-  try {
-    const { seatNumber } = req.body;
-    if (!seatNumber) {
-      return res.status(400).json({ message: "seatNumber is required" });
-    }
-
-    const movie = await Movie.findById(req.params.id);
-    if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
-    }
-
-    const seat = movie.seats.find((s) => s.seatNumber === seatNumber);
-    if (!seat) {
-      return res.status(404).json({ message: `Seat ${seatNumber} not found` });
-    }
-
-    seat.isBooked = false;
-    await movie.save();
-
-    res.status(200).json({
-      message: `Seat ${seatNumber} released successfully`,
-      seat,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-// ─────────────────────────────────────────────
-// PUT /api/movies/:id  — update a movie (admin)
-// ─────────────────────────────────────────────
+// @desc    Update movie
+// @route   PUT /api/movies/:id
+// @access  Private
 exports.updateMovie = async (req, res) => {
   try {
-    const movie = await Movie.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    ).select("-seats");
+    let movie = await Movie.findById(req.params.id);
 
     if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
+      return res.status(404).json({ success: false, message: "Movie not found" });
     }
-    res.status(200).json({ message: "Movie updated successfully", movie });
+
+    movie = await Movie.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({ success: true, data: movie });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(400).json({ success: false, message: "Error updating movie", error: error.message });
   }
 };
 
-// ─────────────────────────────────────────────
-// DELETE /api/movies/:id  — delete a movie (admin)
-// ─────────────────────────────────────────────
+// @desc    Delete movie
+// @route   DELETE /api/movies/:id
+// @access  Private
 exports.deleteMovie = async (req, res) => {
   try {
-    const movie = await Movie.findByIdAndDelete(req.params.id);
+    const movie = await Movie.findById(req.params.id);
+
     if (!movie) {
-      return res.status(404).json({ message: "Movie not found" });
+      return res.status(404).json({ success: false, message: "Movie not found" });
     }
-    res.status(200).json({ message: "Movie deleted successfully" });
+
+    await Movie.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ success: true, data: {}, message: "Movie deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// @desc    Reserve seats for a movie
+// @route   POST /api/movies/reserve-seats
+// @access  Public
+exports.reserveSeats = async (req, res) => {
+  try {
+    const { movieId, seats } = req.body;
+
+    if (!movieId || !seats || seats.length === 0) {
+      return res.status(400).json({ success: false, message: "movieId and seats are required" });
+    }
+
+    const movie = await Movie.findById(movieId);
+    if (!movie) {
+      return res.status(404).json({ success: false, message: "Movie not found" });
+    }
+
+    // Check if seats exist and are available
+    for (let seatNumber of seats) {
+      const seat = movie.seats.find((s) => s.seatNumber === seatNumber);
+
+      if (!seat) {
+        return res.status(400).json({ success: false, message: `Seat ${seatNumber} does not exist` });
+      }
+
+      if (seat.isBooked) {
+        return res.status(400).json({ success: false, message: `Seat ${seatNumber} is already booked` });
+      }
+    }
+
+    // Mark seats as booked
+    movie.seats.forEach((s) => {
+      if (seats.includes(s.seatNumber)) {
+        s.isBooked = true;
+      }
+    });
+
+    await movie.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Seats reserved successfully",
+      reservedSeats: seats,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// @desc    Get available seats for a movie
+// @route   GET /api/movies/available-seats/:id
+// @access  Public
+exports.getAvailableSeats = async (req, res) => {
+  try {
+    const movie = await Movie.findById(req.params.id);
+
+    if (!movie) {
+      return res.status(404).json({ success: false, message: "Movie not found" });
+    }
+
+    const availableSeats = movie.seats.filter((seat) => !seat.isBooked);
+
+    res.status(200).json({
+      success: true,
+      totalSeats: movie.seats.length,
+      availableCount: availableSeats.length,
+      data: availableSeats,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// @desc    Select movie and notify via RabbitMQ
+// @route   POST /api/movies/select-movie
+// @access  Public
+exports.selectMovie = async (req, res) => {
+  try {
+    const { movieId } = req.body;
+    const channel = getChannel();
+
+    if (!channel) {
+      return res.status(500).json({ success: false, message: "RabbitMQ channel not available" });
+    }
+
+    const exchange = "movie_exchange";
+    await channel.assertExchange(exchange, "fanout", { durable: false });
+
+    const message = {
+      movieId,
+      action: "MOVIE_SELECTED",
+      timestamp: new Date(),
+    };
+
+    channel.publish(exchange, "", Buffer.from(JSON.stringify(message)));
+
+    res.status(200).json({ success: true, message: "Movie selection event sent" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to send event", error: error.message });
   }
 };

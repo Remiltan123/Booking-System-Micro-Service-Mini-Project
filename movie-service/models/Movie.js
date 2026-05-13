@@ -1,68 +1,69 @@
 const mongoose = require("mongoose");
 
-// Each seat: { seatNumber: "A1", isBooked: false }
-const seatSchema = new mongoose.Schema({
-  seatNumber: { type: String, required: true },
-  isBooked:   { type: Boolean, default: false },
-});
+// Helper to generate a default seat map (e.g., 50 seats)
+const generateSeats = () => {
+  const seats = [];
+  const rows = "ABCDEFGHIJ"; // 10 rows
+  for (let row of rows) {
+    for (let i = 1; i <= 5; i++) {
+      seats.push({
+        seatNumber: `${row}${i}`,
+        isBooked: false,
+      });
+    }
+  }
+  return seats;
+};
 
 const movieSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: true,
+      required: [true, "Please add a movie title"],
       trim: true,
     },
     description: {
       type: String,
-      default: "",
+      required: [true, "Please add a description"],
     },
     genre: {
       type: String,
-      required: true,
-    },
-    language: {
-      type: String,
-      default: "English",
+      required: [true, "Please add a genre"],
     },
     duration: {
-      // in minutes
-      type: Number,
-      required: true,
+      type: Number, // in minutes
+      required: [true, "Please add duration in minutes"],
     },
     releaseDate: {
       type: Date,
-      required: true,
+      required: [true, "Please add a release date"],
     },
     posterUrl: {
       type: String,
-      default: "",
+      default: "no-photo.jpg",
     },
-    totalSeats: {
+    rating: {
       type: Number,
-      required: true,
-      default: 50,
+      min: [1, "Rating must be at least 1"],
+      max: [10, "Rating cannot be more than 10"],
     },
-    seats: [seatSchema],
+    showTime: {
+      type: Date,
+      required: [true, "Please add a show time"],
+    },
+    seats: {
+      type: [
+        {
+          seatNumber: String,
+          isBooked: { type: Boolean, default: false },
+        },
+      ],
+      default: generateSeats,
+    },
   },
-  { timestamps: true }
-);
-
-// Auto-generate seats when a movie is created
-movieSchema.pre("save", function (next) {
-  if (this.isNew && this.seats.length === 0) {
-    const rows = ["A", "B", "C", "D", "E"];
-    const cols = 10;
-    const seats = [];
-    for (const row of rows) {
-      for (let col = 1; col <= cols; col++) {
-        seats.push({ seatNumber: `${row}${col}`, isBooked: false });
-      }
-    }
-    this.seats = seats;
-    this.totalSeats = seats.length;
+  {
+    timestamps: true,
   }
-  next();
-});
+);
 
 module.exports = mongoose.model("Movie", movieSchema);
