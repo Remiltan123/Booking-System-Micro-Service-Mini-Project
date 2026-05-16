@@ -3,13 +3,13 @@ const { Eureka } = require("eureka-js-client");
 const client = new Eureka({
   instance: {
     app: "MOVIE-SERVICE",
-    instanceId: `MOVIE-SERVICE-${process.env.PORT || 5001}`,
+    instanceId: `MOVIE-SERVICE-${process.env.PORT || 5002}`,
     hostName: "localhost",
     ipAddr: "127.0.0.1",
-    statusPageUrl: `http://localhost:${process.env.PORT || 5001}`,
-    homePageUrl: `http://localhost:${process.env.PORT || 5001}`,
+    statusPageUrl: `http://localhost:${process.env.PORT || 5002}`,
+    homePageUrl: `http://localhost:${process.env.PORT || 5002}`,
     port: {
-      $: parseInt(process.env.PORT || 5001),
+      $: parseInt(process.env.PORT || 5002),
       "@enabled": true,
     },
     vipAddress: "movie-service",
