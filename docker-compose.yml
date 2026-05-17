@@ -1,0 +1,101 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  eureka-server:
+    build: ./eureka-server
+    ports:
+      - "8761:8761"
+    depends_on:
+      - mongo
+      - rabbitmq
+
+  api-getway:
+    build: ./api-getway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+
+  user-service:
+    build: ./user-service
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/users
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - PORT=5000
+      - EUREKA_HOST=eureka-server
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+      - rabbitmq
+      - eureka-server
+
+  movie-service:
+    build: ./movie-service
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/movies
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - PORT=5001
+      - EUREKA_HOST=eureka-server
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongo
+      - rabbitmq
+      - eureka-server
+
+  booking-service:
+    build: ./booking-service
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/bookings
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - PORT=5003
+      - EUREKA_HOST=eureka-server
+    ports:
+      - "5003:5003"
+    depends_on:
+      - mongo
+      - rabbitmq
+      - eureka-server
+
+  nodification-service:
+    build: ./nodification-service
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/notifications
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - PORT=5002
+      - EUREKA_HOST=eureka-server
+    ports:
+      - "5002:5002"
+    depends_on:
+      - mongo
+      - rabbitmq
+      - eureka-server
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-getway
+
+volumes:
+  mongo-data:
+    driver: local
