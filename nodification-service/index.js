@@ -2,7 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const { connectRabbitMQ } = require("../movies-service/rabbitmq");
+const { connectRabbitMQ } = require("./config/rabbitmq");
 const startEmailConsumer = require("./consumer/emailComsumer");
 const eurekaClient = require("./config/eureka-client");
 
@@ -36,13 +36,13 @@ const connectDB = async () => {
 connectDB();
 connectRabbitMQAndStartServer();
 app.listen(PORT, () => {
-    console.log(`user service running on port ${PORT}`);
+    console.log(`Notification Service running on port ${PORT}`);
 
     eurekaClient.start((error) => {
         if (error) {
             console.log("Eureka registration failed ", error);
         } else {
-            console.log("User Service registered in Eureka");
+            console.log("Notification Service registered in Eureka");
         }
     });
 });

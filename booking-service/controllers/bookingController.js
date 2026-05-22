@@ -1,5 +1,39 @@
 const Booking = require("../models/Booking");
 const { reserveSeats } = require("../services/movieServiceClient");
+const { getChannel } = require("../config/rabbitmq");
+
+const publishBookingConfirmation = async (booking) => {
+  try {
+    const channel = getChannel();
+
+    if (!channel) {
+      console.warn("RabbitMQ channel not available. Booking confirmation email was not queued.");
+      return;
+    }
+
+    const queue = "booking_confirmation_queue";
+    await channel.assertQueue(queue, { durable: true });
+
+    channel.sendToQueue(
+      queue,
+      Buffer.from(
+        JSON.stringify({
+          type: "BOOKING_CONFIRMED",
+          email: booking.userEmail,
+          subject: "Booking Confirmation",
+          bookingId: booking._id,
+          movieId: booking.movieId,
+          movieTitle: booking.movieTitle,
+          seatNumber: booking.seatNumber,
+          userId: booking.userId,
+        })
+      ),
+      { persistent: true }
+    );
+  } catch (error) {
+    console.error("Failed to queue booking confirmation email:", error.message);
+  }
+};
 
 // ──────────────────────────────────────────────────────
 // POST /api/bookings
@@ -59,6 +93,8 @@ exports.createBooking = async (req, res) => {
       movieTitle,
       seatNumber,
     });
+
+    await publishBookingConfirmation(booking);
 
     res.status(201).json({
       message: "Booking confirmed successfully",
