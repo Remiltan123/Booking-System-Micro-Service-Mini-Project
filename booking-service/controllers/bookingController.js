@@ -1,5 +1,5 @@
 const Booking = require("../models/Booking");
-const { reserveSeats } = require("../services/movieServiceClient");
+const { reserveSeats, releaseSeats } = require("../services/movieServiceClient");
 const { getChannel } = require("../config/rabbitmq");
 
 const publishBookingConfirmation = async (booking) => {
@@ -145,9 +145,7 @@ exports.getMyBookings = async (req, res) => {
 // DELETE /api/bookings/:id
 // Cancel a booking (sets status to CANCELLED)
 //
-// TODO (Inter-service - Phase 2):
-//   Call Movie Service PATCH /api/movies/:movieId/seats/release
-//   to free up the seat when a booking is cancelled.
+// Calls Movie Service to release the booked seat before cancelling the booking.
 // ──────────────────────────────────────────────────────
 exports.cancelBooking = async (req, res) => {
   try {
@@ -163,6 +161,25 @@ exports.cancelBooking = async (req, res) => {
 
     if (booking.status === "CANCELLED") {
       return res.status(400).json({ message: "Booking is already cancelled" });
+    }
+
+    try {
+      await releaseSeats({
+        movieId: booking.movieId,
+        seats: [booking.seatNumber],
+      });
+    } catch (error) {
+      if (error.response) {
+        return res.status(error.response.status).json({
+          message: error.response.data?.message || "Movie Service rejected the seat release",
+          error: error.response.data?.error,
+        });
+      }
+
+      return res.status(503).json({
+        message: "Movie Service is unavailable. Booking was not cancelled.",
+        error: error.message,
+      });
     }
 
     booking.status = "CANCELLED";

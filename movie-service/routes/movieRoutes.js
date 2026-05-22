@@ -7,6 +7,7 @@ const {
   updateMovie,
   deleteMovie,
   reserveSeats,
+  releaseSeats,
   getAvailableSeats,
   selectMovie,
 } = require("../controllers/movieController");
@@ -35,6 +36,9 @@ router.delete("/delete-movie/:id", deleteMovie);
 
 // Reserve seats
 router.post("/reserve-seats", reserveSeats);
+
+// Release seats
+router.post("/release-seats", releaseSeats);
 
 // Get available seats
 router.get("/available-seats/:id", getAvailableSeats);

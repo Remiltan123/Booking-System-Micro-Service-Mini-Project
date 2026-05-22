@@ -154,6 +154,52 @@ exports.reserveSeats = async (req, res) => {
   }
 };
 
+// @desc    Release reserved seats for a movie
+// @route   POST /api/movies/release-seats
+// @access  Public
+exports.releaseSeats = async (req, res) => {
+  try {
+    const { movieId, seats } = req.body;
+
+    if (!movieId || !seats || seats.length === 0) {
+      return res.status(400).json({ success: false, message: "movieId and seats are required" });
+    }
+
+    const movie = await Movie.findById(movieId);
+    if (!movie) {
+      return res.status(404).json({ success: false, message: "Movie not found" });
+    }
+
+    for (let seatNumber of seats) {
+      const seat = movie.seats.find((s) => s.seatNumber === seatNumber);
+
+      if (!seat) {
+        return res.status(400).json({ success: false, message: `Seat ${seatNumber} does not exist` });
+      }
+
+      if (!seat.isBooked) {
+        return res.status(400).json({ success: false, message: `Seat ${seatNumber} is not currently booked` });
+      }
+    }
+
+    movie.seats.forEach((s) => {
+      if (seats.includes(s.seatNumber)) {
+        s.isBooked = false;
+      }
+    });
+
+    await movie.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Seats released successfully",
+      releasedSeats: seats,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
 // @desc    Get available seats for a movie
 // @route   GET /api/movies/available-seats/:id
 // @access  Public
