@@ -11,8 +11,8 @@ const Home = () => {
   useEffect(() => {
     const fetchMovies = async () => {
       try {
-        const response = await apiClient.get('/movie-service/api/movies');
-        setMovies(response.data);
+        const response = await apiClient.get('/movie-service/api/movies/get-movies');
+        setMovies(response.data?.data || []);
       } catch (err) {
         setError('Failed to load movies. Ensure services are running.');
         console.error(err);

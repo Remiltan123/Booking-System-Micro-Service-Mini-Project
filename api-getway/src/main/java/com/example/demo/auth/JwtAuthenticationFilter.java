@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -36,10 +37,18 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
             System.out.println("Path hit: " + path);
 
+            // Browser CORS preflight requests must pass without JWT validation.
+            if (request.getMethod() == HttpMethod.OPTIONS) {
+                return chain.filter(exchange);
+            }
+
             // Allow public endpoints
             if (path.contains("/api/users/login") ||
                     path.contains("/api/users/register") ||
-                    path.contains("/api/users/forgot-password")) {
+                    path.contains("/api/users/forgot-password") ||
+                    path.contains("/api/movies/get-movies") ||
+                    path.contains("/api/movies/get-movie") ||
+                    path.contains("/api/movies/available-seats")) {
                 return chain.filter(exchange);
             }
 

@@ -1,4 +1,39 @@
 const Booking = require("../models/Booking");
+const { reserveSeats, releaseSeats } = require("../services/movieServiceClient");
+const { getChannel } = require("../config/rabbitmq");
+
+const publishBookingConfirmation = async (booking) => {
+  try {
+    const channel = getChannel();
+
+    if (!channel) {
+      console.warn("RabbitMQ channel not available. Booking confirmation email was not queued.");
+      return;
+    }
+
+    const queue = "booking_confirmation_queue";
+    await channel.assertQueue(queue, { durable: true });
+
+    channel.sendToQueue(
+      queue,
+      Buffer.from(
+        JSON.stringify({
+          type: "BOOKING_CONFIRMED",
+          email: booking.userEmail,
+          subject: "Booking Confirmation",
+          bookingId: booking._id,
+          movieId: booking.movieId,
+          movieTitle: booking.movieTitle,
+          seatNumber: booking.seatNumber,
+          userId: booking.userId,
+        })
+      ),
+      { persistent: true }
+    );
+  } catch (error) {
+    console.error("Failed to queue booking confirmation email:", error.message);
+  }
+};
 
 // ──────────────────────────────────────────────────────
 // POST /api/bookings
@@ -6,13 +41,7 @@ const Booking = require("../models/Booking");
 // Body: { movieId, movieTitle, seatNumber, userEmail }
 // Protected: requires JWT (userId comes from token)
 //
-// TODO (Inter-service - Phase 2):
-//   1. Call Movie Service GET /api/movies/:movieId/seats
-//      to verify the seat exists and is NOT already booked.
-//   2. Call Movie Service PATCH /api/movies/:movieId/seats/book
-//      to mark the seat as booked in Movie DB.
-//   3. Publish to RabbitMQ "booking_confirmation_queue"
-//      so Notification Service sends a confirmation email.
+// Calls Movie Service to reserve the requested seat before saving the booking.
 // ──────────────────────────────────────────────────────
 exports.createBooking = async (req, res) => {
   try {
@@ -38,6 +67,25 @@ exports.createBooking = async (req, res) => {
       });
     }
 
+    try {
+      await reserveSeats({
+        movieId,
+        seats: [seatNumber],
+      });
+    } catch (error) {
+      if (error.response) {
+        return res.status(error.response.status).json({
+          message: error.response.data?.message || "Movie Service rejected the seat reservation",
+          error: error.response.data?.error,
+        });
+      }
+
+      return res.status(503).json({
+        message: "Movie Service is unavailable. Booking was not created.",
+        error: error.message,
+      });
+    }
+
     const booking = await Booking.create({
       userId,
       userEmail,
@@ -45,6 +93,8 @@ exports.createBooking = async (req, res) => {
       movieTitle,
       seatNumber,
     });
+
+    await publishBookingConfirmation(booking);
 
     res.status(201).json({
       message: "Booking confirmed successfully",
@@ -95,9 +145,7 @@ exports.getMyBookings = async (req, res) => {
 // DELETE /api/bookings/:id
 // Cancel a booking (sets status to CANCELLED)
 //
-// TODO (Inter-service - Phase 2):
-//   Call Movie Service PATCH /api/movies/:movieId/seats/release
-//   to free up the seat when a booking is cancelled.
+// Calls Movie Service to release the booked seat before cancelling the booking.
 // ──────────────────────────────────────────────────────
 exports.cancelBooking = async (req, res) => {
   try {
@@ -113,6 +161,25 @@ exports.cancelBooking = async (req, res) => {
 
     if (booking.status === "CANCELLED") {
       return res.status(400).json({ message: "Booking is already cancelled" });
+    }
+
+    try {
+      await releaseSeats({
+        movieId: booking.movieId,
+        seats: [booking.seatNumber],
+      });
+    } catch (error) {
+      if (error.response) {
+        return res.status(error.response.status).json({
+          message: error.response.data?.message || "Movie Service rejected the seat release",
+          error: error.response.data?.error,
+        });
+      }
+
+      return res.status(503).json({
+        message: "Movie Service is unavailable. Booking was not cancelled.",
+        error: error.message,
+      });
     }
 
     booking.status = "CANCELLED";

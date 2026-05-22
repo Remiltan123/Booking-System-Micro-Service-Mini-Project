@@ -1,4 +1,4 @@
-export const forgotPasswordTemplate = (resetLink) => {
+const forgotPasswordTemplate = (resetLink) => {
   return `
     <div style="font-family: Arial; padding: 20px;">
       <h2>Password Reset Request</h2>
@@ -14,3 +14,5 @@ export const forgotPasswordTemplate = (resetLink) => {
     </div>
   `;
 };
+
+module.exports = { forgotPasswordTemplate };

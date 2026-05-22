@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import apiClient from '../api/apiClient';
 
@@ -8,6 +9,12 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    setUser(null);
+  };
 
   useEffect(() => {
     // Check if token exists on load and fetch user profile
@@ -50,12 +57,6 @@ export const AuthProvider = ({ children }) => {
     setUser({ id: _id, name, email });
     
     return response.data;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    setUser(null);
   };
 
   return (

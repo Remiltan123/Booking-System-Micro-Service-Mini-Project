@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
@@ -17,16 +17,18 @@ const MovieDetails = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
+  const fetchMovieDetails = useCallback(async () => {
+    const movieRes = await apiClient.get(`/movie-service/api/movies/get-movie/${id}`);
+    const movieData = movieRes.data?.data;
+
+    setMovie(movieData);
+    setSeatsData({ seats: movieData?.seats || [] });
+  }, [id]);
+
   useEffect(() => {
-    const fetchMovieDetails = async () => {
+    const loadMovieDetails = async () => {
       try {
-        // Fetch basic movie details
-        const movieRes = await apiClient.get(`/movie-service/api/movies/${id}`);
-        setMovie(movieRes.data);
-        
-        // Fetch seat availability
-        const seatsRes = await apiClient.get(`/movie-service/api/movies/${id}/seats`);
-        setSeatsData(seatsRes.data);
+        await fetchMovieDetails();
       } catch (err) {
         setError('Failed to load movie details.');
         console.error(err);
@@ -35,8 +37,8 @@ const MovieDetails = () => {
       }
     };
 
-    fetchMovieDetails();
-  }, [id]);
+    loadMovieDetails();
+  }, [fetchMovieDetails]);
 
   const handleSeatClick = (seat) => {
     if (seat.isBooked) return;
@@ -60,17 +62,17 @@ const MovieDetails = () => {
     setError(null);
 
     try {
-      // Temporary direct call to Movie Service since Booking Service isn't ready
-      await apiClient.patch(`/movie-service/api/movies/${id}/seats/book`, {
-        seatNumber: selectedSeat
+      await apiClient.post('/booking-service/api/bookings', {
+        movieId: id,
+        movieTitle: movie.title,
+        seatNumber: selectedSeat,
+        userEmail: user.email,
       });
       
       setMessage(`Successfully booked seat ${selectedSeat}!`);
       setSelectedSeat(null);
       
-      // Refresh seats
-      const seatsRes = await apiClient.get(`/movie-service/api/movies/${id}/seats`);
-      setSeatsData(seatsRes.data);
+      await fetchMovieDetails();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to book seat.');
     } finally {
@@ -88,8 +90,7 @@ const MovieDetails = () => {
   
   const posterImg = movie.posterUrl || `https://via.placeholder.com/400x600/1e293b/8b5cf6?text=${encodeURIComponent(movie.title)}`;
 
-  // Organize seats into rows for display
-  const rows = ['A', 'B', 'C', 'D', 'E'];
+  const rows = [...new Set((seatsData?.seats || []).map((seat) => seat.seatNumber.charAt(0)))];
 
   return (
     <div className="container page-wrapper animate-fade-in">
