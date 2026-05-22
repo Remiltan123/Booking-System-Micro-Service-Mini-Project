@@ -55,8 +55,12 @@ exports.createMovie = async (req, res) => {
     const channel = getChannel();
     if (channel) {
         const queue = "movie_events_queue";
-        await channel.assertQueue(queue);
-        channel.sendToQueue(queue, Buffer.from(JSON.stringify({ type: "MOVIE_CREATED", data: movie })));
+        await channel.assertQueue(queue, { durable: true });
+        channel.sendToQueue(
+          queue,
+          Buffer.from(JSON.stringify({ type: "MOVIE_CREATED", data: movie })),
+          { persistent: true }
+        );
     }
 
     res.status(201).json({ success: true, data: movie });

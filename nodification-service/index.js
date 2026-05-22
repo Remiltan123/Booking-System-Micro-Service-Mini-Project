@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const { connectRabbitMQ } = require("./config/rabbitmq");
 const startEmailConsumer = require("./consumer/emailComsumer");
+const startMovieEventConsumer = require("./consumer/movieEventConsumer");
 const eurekaClient = require("./config/eureka-client");
 
 
@@ -18,6 +19,7 @@ const connectRabbitMQAndStartServer = async () => {
     try {
         await connectRabbitMQ();
         await startEmailConsumer();
+        await startMovieEventConsumer();
         console.log('Connected to RabbitMQ successfully');
     } catch (error) {
         console.error('Failed to connect to RabbitMQ', error);
