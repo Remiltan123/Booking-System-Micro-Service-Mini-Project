@@ -1,4 +1,5 @@
 const Booking = require("../models/Booking");
+const { reserveSeats } = require("../services/movieServiceClient");
 
 // ──────────────────────────────────────────────────────
 // POST /api/bookings
@@ -6,13 +7,7 @@ const Booking = require("../models/Booking");
 // Body: { movieId, movieTitle, seatNumber, userEmail }
 // Protected: requires JWT (userId comes from token)
 //
-// TODO (Inter-service - Phase 2):
-//   1. Call Movie Service GET /api/movies/:movieId/seats
-//      to verify the seat exists and is NOT already booked.
-//   2. Call Movie Service PATCH /api/movies/:movieId/seats/book
-//      to mark the seat as booked in Movie DB.
-//   3. Publish to RabbitMQ "booking_confirmation_queue"
-//      so Notification Service sends a confirmation email.
+// Calls Movie Service to reserve the requested seat before saving the booking.
 // ──────────────────────────────────────────────────────
 exports.createBooking = async (req, res) => {
   try {
@@ -35,6 +30,25 @@ exports.createBooking = async (req, res) => {
     if (existingBooking) {
       return res.status(409).json({
         message: `Seat ${seatNumber} for this movie is already booked`,
+      });
+    }
+
+    try {
+      await reserveSeats({
+        movieId,
+        seats: [seatNumber],
+      });
+    } catch (error) {
+      if (error.response) {
+        return res.status(error.response.status).json({
+          message: error.response.data?.message || "Movie Service rejected the seat reservation",
+          error: error.response.data?.error,
+        });
+      }
+
+      return res.status(503).json({
+        message: "Movie Service is unavailable. Booking was not created.",
+        error: error.message,
       });
     }
 
