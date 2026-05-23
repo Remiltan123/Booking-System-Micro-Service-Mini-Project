@@ -1,0 +1,149 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: booking-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: booking-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  eureka-server:
+    build:
+      context: ./eureka-server
+    container_name: booking-eureka-server
+    ports:
+      - "8761:8761"
+
+  api-gateway:
+    build:
+      context: ./api-getway
+    container_name: booking-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  user-service:
+    build:
+      context: ./user-service
+    container_name: booking-user-service
+    env_file:
+      - ./user-service/.env
+    environment:
+      PORT: 5000
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: user-service
+    ports:
+      - "5000:5000"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  nodification-service:
+    build:
+      context: ./nodification-service
+    container_name: booking-notification-service
+    env_file:
+      - ./nodification-service/.env
+    environment:
+      PORT: 5001
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: nodification-service
+    ports:
+      - "5001:5001"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  movie-service:
+    build:
+      context: ./movie-service
+    container_name: booking-movie-service
+    env_file:
+      - ./movie-service/.env
+    environment:
+      PORT: 5002
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: movie-service
+    ports:
+      - "5002:5002"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  booking-service:
+    build:
+      context: ./booking-service
+    container_name: booking-booking-service
+    env_file:
+      - ./booking-service/.env
+    environment:
+      PORT: 5003
+      MOVIE_SERVICE_URL: http://movie-service:5002
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: booking-service
+    ports:
+      - "5003:5003"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      movie-service:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: booking-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api-gateway
