@@ -1,9 +1,17 @@
 const sendEmail = require("../service/emailService");
 const { forgotPasswordTemplate } = require("../emailTemplate/forgotPassword");
 const { bookingConfirmationTemplate } = require("../emailTemplate/bookingConfirmation");
+const { bookingCancelledTemplate } = require("../emailTemplate/bookingCancelled");
+const { profileUpdatedTemplate } = require("../emailTemplate/profileUpdated");
+const { welcomeUserTemplate } = require("../emailTemplate/welcomeUser");
 const { getChannel } = require("../config/rabbitmq");
 
-const queues = ["forgot_passwordemail_queue", "booking_confirmation_queue"];
+const queues = [
+  "forgot_passwordemail_queue",
+  "booking_confirmation_queue",
+  "booking_cancelled_queue",
+  "user_events_queue",
+];
 
 const startEmailConsumer = async () => {
   const channel = getChannel();
@@ -27,6 +35,18 @@ const startEmailConsumer = async () => {
 
           case "BOOKING_CONFIRMED":
             html = bookingConfirmationTemplate(data);
+            break;
+
+          case "BOOKING_CANCELLED":
+            html = bookingCancelledTemplate(data);
+            break;
+
+          case "USER_REGISTERED":
+            html = welcomeUserTemplate(data);
+            break;
+
+          case "PROFILE_UPDATED":
+            html = profileUpdatedTemplate(data);
             break;
 
           default:

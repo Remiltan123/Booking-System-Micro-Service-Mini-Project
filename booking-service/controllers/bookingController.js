@@ -35,6 +35,39 @@ const publishBookingConfirmation = async (booking) => {
   }
 };
 
+const publishBookingCancellation = async (booking) => {
+  try {
+    const channel = getChannel();
+
+    if (!channel) {
+      console.warn("RabbitMQ channel not available. Booking cancellation email was not queued.");
+      return;
+    }
+
+    const queue = "booking_cancelled_queue";
+    await channel.assertQueue(queue, { durable: true });
+
+    channel.sendToQueue(
+      queue,
+      Buffer.from(
+        JSON.stringify({
+          type: "BOOKING_CANCELLED",
+          email: booking.userEmail,
+          subject: "Booking Cancelled",
+          bookingId: booking._id,
+          movieId: booking.movieId,
+          movieTitle: booking.movieTitle,
+          seatNumber: booking.seatNumber,
+          userId: booking.userId,
+        })
+      ),
+      { persistent: true }
+    );
+  } catch (error) {
+    console.error("Failed to queue booking cancellation email:", error.message);
+  }
+};
+
 // ──────────────────────────────────────────────────────
 // POST /api/bookings
 // Create a new booking
@@ -184,6 +217,8 @@ exports.cancelBooking = async (req, res) => {
 
     booking.status = "CANCELLED";
     await booking.save();
+
+    await publishBookingCancellation(booking);
 
     res.status(200).json({
       message: "Booking cancelled successfully",
