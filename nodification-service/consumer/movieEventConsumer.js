@@ -20,6 +20,20 @@ const handleMovieEvent = async (data) => {
       });
       break;
 
+    case "MOVIE_UPDATED":
+      console.log("Movie updated event received:", {
+        movieId: data.data?._id,
+        title: data.data?.title,
+      });
+      break;
+
+    case "MOVIE_DELETED":
+      console.log("Movie deleted event received:", {
+        movieId: data.data?._id,
+        title: data.data?.title,
+      });
+      break;
+
     default:
       throw new Error("Unknown movie event type");
   }

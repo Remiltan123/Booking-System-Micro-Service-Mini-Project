@@ -1,6 +1,23 @@
 const Movie = require("../models/Movie");
 const { getChannel } = require("../config/rabbitmq");
 
+const publishMovieEvent = async (event) => {
+  try {
+    const channel = getChannel();
+
+    if (!channel) {
+      console.warn("RabbitMQ channel not available. Movie event was not queued.");
+      return;
+    }
+
+    const queue = "movie_events_queue";
+    await channel.assertQueue(queue, { durable: true });
+    channel.sendToQueue(queue, Buffer.from(JSON.stringify(event)), { persistent: true });
+  } catch (error) {
+    console.error("Failed to queue movie event:", error.message);
+  }
+};
+
 // @desc    Get all movies
 // @route   GET /api/movies
 // @access  Public
@@ -51,17 +68,7 @@ exports.createMovie = async (req, res) => {
   try {
     const movie = await Movie.create(req.body);
 
-    // Optional: Send event to RabbitMQ
-    const channel = getChannel();
-    if (channel) {
-        const queue = "movie_events_queue";
-        await channel.assertQueue(queue, { durable: true });
-        channel.sendToQueue(
-          queue,
-          Buffer.from(JSON.stringify({ type: "MOVIE_CREATED", data: movie })),
-          { persistent: true }
-        );
-    }
+    await publishMovieEvent({ type: "MOVIE_CREATED", data: movie });
 
     res.status(201).json({ success: true, data: movie });
   } catch (error) {
@@ -85,6 +92,8 @@ exports.updateMovie = async (req, res) => {
       runValidators: true,
     });
 
+    await publishMovieEvent({ type: "MOVIE_UPDATED", data: movie });
+
     res.status(200).json({ success: true, data: movie });
   } catch (error) {
     res.status(400).json({ success: false, message: "Error updating movie", error: error.message });
@@ -103,6 +112,7 @@ exports.deleteMovie = async (req, res) => {
     }
 
     await Movie.findByIdAndDelete(req.params.id);
+    await publishMovieEvent({ type: "MOVIE_DELETED", data: movie });
 
     res.status(200).json({ success: true, data: {}, message: "Movie deleted successfully" });
   } catch (error) {

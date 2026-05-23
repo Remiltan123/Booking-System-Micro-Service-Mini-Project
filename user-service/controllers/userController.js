@@ -11,6 +11,24 @@ const generateToken = (id) => {
   });
 };
 
+const publishUserEvent = async (event) => {
+  try {
+    const channel = getChannel();
+
+    if (!channel) {
+      console.warn("RabbitMQ channel not available. User event was not queued.");
+      return;
+    }
+
+    const queue = "user_events_queue";
+    await channel.assertQueue(queue, { durable: true });
+
+    channel.sendToQueue(queue, Buffer.from(JSON.stringify(event)), { persistent: true });
+  } catch (error) {
+    console.error("Failed to queue user event:", error.message);
+  }
+};
+
 // REGISTER
 exports.registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -27,6 +45,14 @@ exports.registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+    });
+
+    await publishUserEvent({
+      type: "USER_REGISTERED",
+      email: user.email,
+      subject: "Welcome to TicketMaster",
+      userId: user._id,
+      name: user.name,
     });
 
     res.status(201).json({
@@ -103,6 +129,14 @@ exports.updateUserProfile = async (req, res) => {
 
     const updatedUser = await user.save();
 
+    await publishUserEvent({
+      type: "PROFILE_UPDATED",
+      email: updatedUser.email,
+      subject: "Profile Updated",
+      userId: updatedUser._id,
+      name: updatedUser.name,
+    });
+
     res.status(200).json({
       _id: updatedUser._id,
       name: updatedUser.name,
@@ -139,7 +173,7 @@ exports.forgotPassword = async (req, res) => {
     const channel = getChannel();
     const queue = "forgot_passwordemail_queue";
 
-    await channel.assertQueue(queue);
+    await channel.assertQueue(queue, { durable: true });
 
       channel.sendToQueue(
       queue,
