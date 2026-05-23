@@ -1,18 +1,23 @@
 const { Eureka } = require("eureka-js-client");
 
+const PORT = parseInt(process.env.PORT || 5001);
+const HOSTNAME = process.env.EUREKA_INSTANCE_HOSTNAME || "localhost";
+const EUREKA_HOST = process.env.EUREKA_HOST || "localhost";
+const EUREKA_PORT = parseInt(process.env.EUREKA_PORT || 8761);
+
 const client = new Eureka({
   instance: {
     app: "NOTIFICATION-SERVICE",   
-    instanceId: `NOTIFICATION-SERVICE-${process.env.PORT || 5001}`,
+    instanceId: `NOTIFICATION-SERVICE-${PORT}`,
 
-    hostName: "localhost",
-    ipAddr: "127.0.0.1",
+    hostName: HOSTNAME,
+    ipAddr: HOSTNAME,
 
-    statusPageUrl: "http://localhost:5001",
-    homePageUrl: "http://localhost:5001",
+    statusPageUrl: `http://${HOSTNAME}:${PORT}`,
+    homePageUrl: `http://${HOSTNAME}:${PORT}`,
 
     port: {
-      $: 5001,        
+      $: PORT,        
       "@enabled": true,
     },
 
@@ -25,8 +30,8 @@ const client = new Eureka({
   },
 
   eureka: {
-    host: "localhost",
-    port: 8761,          
+    host: EUREKA_HOST,
+    port: EUREKA_PORT,          
     servicePath: "/eureka/apps/",
   },
 });
