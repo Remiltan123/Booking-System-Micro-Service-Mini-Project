@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { UserPlus } from 'lucide-react';
 
 const Register = () => {
@@ -12,6 +13,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   const { register } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -19,16 +21,21 @@ const Register = () => {
     setError('');
     
     if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+      setError('Passwords do not match');
+      showToast('Passwords do not match.', 'error');
+      return;
     }
     
     setIsLoading(true);
     
     try {
       await register(name, email, password);
+      showToast('Account created successfully.', 'success');
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      const message = err.response?.data?.message || 'Registration failed. Please try again.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setIsLoading(false);
     }

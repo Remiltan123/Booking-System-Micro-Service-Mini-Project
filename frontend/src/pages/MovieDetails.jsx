@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Clock, Calendar, Ticket, ChevronLeft } from 'lucide-react';
 
 const MovieDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
   
   const [movie, setMovie] = useState(null);
   const [seatsData, setSeatsData] = useState(null);
@@ -70,11 +72,14 @@ const MovieDetails = () => {
       });
       
       setMessage(`Successfully booked seat ${selectedSeat}!`);
+      showToast(`Seat ${selectedSeat} booked successfully.`, 'success');
       setSelectedSeat(null);
       
       await fetchMovieDetails();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to book seat.');
+      const message = err.response?.data?.message || 'Failed to book seat.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setBookingLoading(false);
     }
