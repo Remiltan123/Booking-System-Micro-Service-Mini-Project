@@ -40,3 +40,6 @@ eureka:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+    # Dev-only: refresh the gateway's local registry copy every 5s instead
+    # of the 30s default, so it stops routing to evicted instances sooner.
+    registry-fetch-interval-seconds: 5
