@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import apiClient from '../api/apiClient';
 import { User, Mail, Ticket, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { useEffect, useState } from 'react';
 
 const Profile = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [bookingError, setBookingError] = useState('');
@@ -67,8 +69,11 @@ const Profile = () => {
     try {
       await apiClient.delete(`/booking-service/api/bookings/${bookingId}`);
       await fetchBookings();
+      showToast('Booking cancelled successfully.', 'success');
     } catch (error) {
-      setBookingError(error.response?.data?.message || 'Failed to cancel booking.');
+      const message = error.response?.data?.message || 'Failed to cancel booking.';
+      setBookingError(message);
+      showToast(message, 'error');
     } finally {
       setCancellingId(null);
     }

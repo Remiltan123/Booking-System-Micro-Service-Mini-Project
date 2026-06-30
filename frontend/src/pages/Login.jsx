@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { LogIn } from 'lucide-react';
 
 const Login = () => {
@@ -10,6 +11,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   const { login } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -19,9 +21,12 @@ const Login = () => {
     
     try {
       await login(email, password);
+      showToast('Logged in successfully.', 'success');
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      const message = err.response?.data?.message || 'Login failed. Please check your credentials.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setIsLoading(false);
     }
