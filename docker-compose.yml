@@ -67,7 +67,10 @@ services:
       REDIS_PORT: 6379
       EUREKA_HOST: eureka-server
       EUREKA_PORT: 8761
-      EUREKA_INSTANCE_HOSTNAME: user-service
+      EUREKA_LEASE_RENEWAL_INTERVAL: 5
+      EUREKA_LEASE_EXPIRATION_DURATION: 10
+      EUREKA_HEARTBEAT_INTERVAL: 5000
+      EUREKA_REGISTRY_FETCH_INTERVAL: 5000
     ports:
       - "5000:5000"
     dns:
@@ -95,7 +98,10 @@ services:
       RABBITMQ_URL: amqp://rabbitmq:5672
       EUREKA_HOST: eureka-server
       EUREKA_PORT: 8761
-      EUREKA_INSTANCE_HOSTNAME: nodification-service
+      EUREKA_LEASE_RENEWAL_INTERVAL: 5
+      EUREKA_LEASE_EXPIRATION_DURATION: 10
+      EUREKA_HEARTBEAT_INTERVAL: 5000
+      EUREKA_REGISTRY_FETCH_INTERVAL: 5000
     ports:
       - "5001:5001"
     dns:
@@ -112,7 +118,6 @@ services:
   movie-service:
     build:
       context: ./movie-service
-    container_name: booking-movie-service
     env_file:
       - ./movie-service/.env
     environment:
@@ -121,9 +126,10 @@ services:
       RABBITMQ_URL: amqp://rabbitmq:5672
       EUREKA_HOST: eureka-server
       EUREKA_PORT: 8761
-      EUREKA_INSTANCE_HOSTNAME: movie-service
-    ports:
-      - "5002:5002"
+      EUREKA_LEASE_RENEWAL_INTERVAL: 5
+      EUREKA_LEASE_EXPIRATION_DURATION: 10
+      EUREKA_HEARTBEAT_INTERVAL: 5000
+      EUREKA_REGISTRY_FETCH_INTERVAL: 5000
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -148,7 +154,10 @@ services:
       RABBITMQ_URL: amqp://rabbitmq:5672
       EUREKA_HOST: eureka-server
       EUREKA_PORT: 8761
-      EUREKA_INSTANCE_HOSTNAME: booking-service
+      EUREKA_LEASE_RENEWAL_INTERVAL: 5
+      EUREKA_LEASE_EXPIRATION_DURATION: 10
+      EUREKA_HEARTBEAT_INTERVAL: 5000
+      EUREKA_REGISTRY_FETCH_INTERVAL: 5000
     ports:
       - "5003:5003"
     dns:
