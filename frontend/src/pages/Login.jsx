@@ -64,16 +64,22 @@ const Login = () => {
             />
           </div>
           
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
+          <button
+            type="submit"
+            className="btn btn-primary"
             style={{ width: '100%', marginTop: '10px' }}
             disabled={isLoading}
           >
             {isLoading ? 'Logging in...' : <><LogIn size={18} /> Login</>}
           </button>
         </form>
-        
+
+        <div style={{ textAlign: 'center', marginTop: '15px' }}>
+          <Link to="/forgot-password" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Forgot password?
+          </Link>
+        </div>
+
         <div style={{ textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)' }}>
           Don't have an account? <Link to="/register" style={{ color: 'var(--primary)' }}>Sign up</Link>
         </div>

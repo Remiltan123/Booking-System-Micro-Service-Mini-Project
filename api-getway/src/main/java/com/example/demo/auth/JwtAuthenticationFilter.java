@@ -46,6 +46,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             if (path.contains("/api/users/login") ||
                     path.contains("/api/users/register") ||
                     path.contains("/api/users/forgot-password") ||
+                    path.contains("/api/users/reset-password") ||
                     path.contains("/api/movies/get-movies") ||
                     path.contains("/api/movies/get-movie") ||
                     path.contains("/api/movies/available-seats")) {

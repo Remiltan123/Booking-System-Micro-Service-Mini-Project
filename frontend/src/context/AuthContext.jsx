@@ -51,16 +51,29 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     const response = await apiClient.post('/user-service/api/users/register', { name, email, password });
     const { token, _id } = response.data;
-    
+
     localStorage.setItem('token', token);
     localStorage.setItem('userId', _id);
     setUser({ id: _id, name, email });
-    
+
+    return response.data;
+  };
+
+  const updateProfile = async (updates) => {
+    // updates may contain name, email, and/or password
+    const response = await apiClient.put(
+      `/user-service/api/users/updateuser/${user.id}`,
+      updates
+    );
+    const { _id, name, email } = response.data;
+
+    setUser((current) => ({ ...current, id: _id, name, email }));
+
     return response.data;
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, updateProfile, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );
