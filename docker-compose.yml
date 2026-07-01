@@ -41,6 +41,16 @@ services:
     container_name: booking-eureka-server
     ports:
       - "8761:8761"
+    healthcheck:
+      # Eureka serves its dashboard/registry once Spring Boot is fully up.
+      # Node clients don't retry the initial registration, so downstream
+      # services must wait for this to pass (service_healthy) rather than
+      # just for the container to start.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8761/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   api-gateway:
     build:
@@ -51,7 +61,8 @@ services:
     environment:
       EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
     depends_on:
-      - eureka-server
+      eureka-server:
+        condition: service_healthy
 
   user-service:
     build:
@@ -84,7 +95,7 @@ services:
       mongo:
         condition: service_healthy
       eureka-server:
-        condition: service_started
+        condition: service_healthy
 
   nodification-service:
     build:
@@ -113,7 +124,7 @@ services:
       mongo:
         condition: service_healthy
       eureka-server:
-        condition: service_started
+        condition: service_healthy
 
   movie-service:
     build:
@@ -139,7 +150,7 @@ services:
       mongo:
         condition: service_healthy
       eureka-server:
-        condition: service_started
+        condition: service_healthy
 
   booking-service:
     build:
@@ -169,7 +180,7 @@ services:
       mongo:
         condition: service_healthy
       eureka-server:
-        condition: service_started
+        condition: service_healthy
       movie-service:
         condition: service_started
 
